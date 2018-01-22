@@ -148,7 +148,6 @@ enum SSPageType {
         
         self.headerView?.frame = CGRect(x: 0, y: self.selectView.frame.minY-CGFloat(self.headerHeight!), width: self.view.frame.width, height: CGFloat(self.headerHeight!))
         
-      
         
         
     }
@@ -234,6 +233,10 @@ enum SSPageType {
     
     func refreshScrollViewContentOffet() {
         //设置其他的scrollview位置错位
+        guard self.pageType == .headerType  else {
+            return;
+        }
+        
         for vc in self.selectViewControllers! {
             if (self.selectViewControllers![self.currectIndex] as! UIViewController).isEqual(vc){
                 for subView in (vc as AnyObject).view.subviews {

@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:SSBannerView/SSBannerView.xcodeproj">
+   </FileRef>
+   <FileRef
       location = "group:SSPageViewController/SSPageViewController.xcodeproj">
    </FileRef>
    <FileRef
