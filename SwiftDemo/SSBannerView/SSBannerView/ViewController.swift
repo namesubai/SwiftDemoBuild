@@ -25,9 +25,20 @@ class ViewController: UIViewController {
             NSLog("点击%d", index)
         }
         
+        let bannerView1 = SSBannerView.init(frame: CGRect(x:0,y:280,width:self.view.frame.width,height:200), itemSize: CGSize(width:self.view.frame.width,height:200), bannerType: .defaultType)
+        self.view.addSubview(bannerView1)
+        bannerView1.images = array
+        bannerView1 .bannerClick { (view, index) in
+            NSLog("点击%d", index)
+        }
+        
         // Do any additional setup after loading the view, typically from a nib.
     }
  
+    @IBAction func defual(_ sender: Any) {
+    }
+    @IBAction func card(_ sender: Any) {
+    }
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.

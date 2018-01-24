@@ -74,9 +74,14 @@ typealias ClickBanerBlock = (_ bannerView:SSBannerView,_ index:Int) -> Void //�
 
 
 let CardCellSpace  = 15
-
+let timeInterval:TimeInterval   = 3
 class SSBannerView: UIView {
     var clickBlock:ClickBanerBlock? = nil
+    var currentIndexPath:IndexPath? = nil
+    var startOrginX:CGFloat?
+    var endOrginX:CGFloat?
+    var timer:Timer?
+
     lazy var myCollectionView:UICollectionView = {
         var collectionView:UICollectionView? = nil
         if self.bannerType == BarnerType.defaultType {
@@ -88,7 +93,7 @@ class SSBannerView: UIView {
         }
         if self.bannerType == BarnerType.cardType {
             let flowLayout = BannerScaleLayout()
-            flowLayout.sectionInset = UIEdgeInsets.init(top: 0, left: CGFloat(CardCellSpace), bottom: 0, right: 0)
+            flowLayout.sectionInset = UIEdgeInsets.init(top: 0, left: CGFloat(CardCellSpace), bottom: 0, right: CGFloat(CardCellSpace))
             flowLayout.itemSize = CGSize.init(width: self.cellWidth(), height: (self.itemSize?.height)!*(self.cellWidth()/(self.itemSize?.width)!))
             flowLayout.scrollDirection = .horizontal
             flowLayout.minimumLineSpacing = CGFloat(CardCellSpace)
@@ -140,6 +145,7 @@ class SSBannerView: UIView {
         self.init(frame: frame)
         self.itemSize = itemSize
         self.bannerType = bannerType
+        self.addTimer()
     }
     
     override init(frame: CGRect) {
@@ -163,15 +169,86 @@ class SSBannerView: UIView {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        if self.bannerType == BarnerType.defaultType {
-            self.myCollectionView.frame = CGRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height)
-        }
-        if self.bannerType == BarnerType.cardType {
-            self.myCollectionView.frame = CGRect(x: 0, y: 0, width: self.frame.width, height: (self.itemSize?.height)!*(self.cellWidth()/(self.itemSize?.width)!))
-
-        }
-//        self.myCollectionView.frame = CGRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height)
+  
+        self.myCollectionView.frame = CGRect(x: 0, y: 0, width: self.frame.width, height: self.frame.height)
         self.myPageControl.frame = CGRect(x: 0, y: self.frame.height-25, width: self.frame.width, height:25)
+    }
+    
+    func findMaxWidthCell() -> SSBannerCell {
+       let array  =  self.myCollectionView.visibleCells.sorted { (cell1, cell2) -> Bool in
+            return  cell1.frame.height>cell2.frame.height
+        }
+        return array.first as! SSBannerCell
+    }
+    
+    func addTimer() {
+        self.timer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: true, block: { (timer) in
+            
+            var currentIndex:IndexPath? = nil
+            var currentRect:CGRect = self.myCollectionView.bounds
+            currentRect.origin.x = self.myCollectionView.contentOffset.x
+            
+            for cell in self.myCollectionView.visibleCells {
+                if currentRect.contains(cell.frame) {
+                    currentIndex = self.myCollectionView.indexPath(for: cell)!
+                    break
+                }
+            }
+            
+            
+            if (currentIndex != nil) {
+                var item = currentIndex!.item
+                if currentIndex!.item == (self.images?.count)!-1 {
+                    item = 0;
+                }else {
+                    item = item + 1;
+                }
+                
+                self.myCollectionView.scrollToItem(at: IndexPath.init(row: item, section: 0), at: .centeredHorizontally, animated: true)
+            }
+        })
+        RunLoop.main.add(self.timer!, forMode: .commonModes)
+    }
+    
+    func removeTimer() {
+        self.timer?.invalidate()
+        self.timer = nil
+    }
+    
+    
+    func fixCenterCell()  {
+        
+//
+//        let selectIndex = self.myCollectionView.indexPath(for: self.findMaxWidthCell())
+//        self.myCollectionView.scrollToItem(at: selectIndex!, at: .centeredHorizontally, animated: true)
+        
+        guard self.currentIndexPath != nil else {
+            return
+        }
+        
+        let distance = self.bounds.width/30.0
+        var item = self.currentIndexPath?.item
+        let section = self.currentIndexPath?.section
+        
+        if item != 0 && item! != (self.images?.count)!-1 {
+            if self.startOrginX! - self.endOrginX! >= distance {
+                item = item! - 1
+            }else if self.endOrginX! - self.startOrginX! >= distance {
+                item = item! + 1
+            }
+            DispatchQueue.main.async(group: nil, qos: .default, flags: .barrier) {
+                self.myCollectionView.scrollToItem(at: IndexPath.init(row:item!, section: section!), at: .centeredHorizontally, animated: true)
+            }
+        }
+        
+        
+       
+       
+    }
+    
+    
+    deinit {
+        self.removeTimer()
     }
     
     
@@ -191,6 +268,7 @@ class SSBannerView: UIView {
 
 extension SSBannerView:UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        self.myCollectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: true)
         guard self.clickBlock != nil else {return}
         if indexPath.item == 0 {
             self.clickBlock!(self,(self.images?.count)!-2)
@@ -199,7 +277,10 @@ extension SSBannerView:UICollectionViewDelegate {
         }else {
             self.clickBlock!(self,indexPath.item-1)
         }
+        
     }
+    
+    
 }
 
 extension SSBannerView:UICollectionViewDataSource {
@@ -223,34 +304,65 @@ extension SSBannerView:UICollectionViewDataSource {
 extension SSBannerView:UIScrollViewDelegate {
     
     
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        self.startOrginX = scrollView.contentOffset.x
+        self.removeTimer()
+    }
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        self.endOrginX = scrollView.contentOffset.x
+        
+        if self.bannerType == .cardType {
+            DispatchQueue.main.async {
+                self.fixCenterCell()
+               
+            }
+        }
+        self.addTimer()
+      
+    }
+    
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        if self.bannerType == .cardType {
+            let selectIndex = self.myCollectionView.indexPath(for: self.findMaxWidthCell())
+            self.myCollectionView.scrollToItem(at: selectIndex!, at: .centeredHorizontally, animated: true)
+        }
+      
+    }
+    
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        
+    }
+
+    
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        
-        
+       
         var currentIndex:IndexPath? = nil
         var currentRect:CGRect = scrollView.bounds
         currentRect.origin.x = scrollView.contentOffset.x
-        
+
         for cell in self.myCollectionView.visibleCells {
             if currentRect.contains(cell.frame) {
                 currentIndex = self.myCollectionView.indexPath(for: cell)!
                 break
             }
         }
-        
-        
+        if (currentIndex != nil) {
+            self.currentIndexPath = currentIndex
+        }
+
         if currentIndex != nil {
             if currentIndex?.item == 0{
                 self.myPageControl.currentPage = (self.images?.count)!-2
                 self.myCollectionView.scrollToItem(at: IndexPath.init(row: (self.images?.count)!-2, section: 0), at: UICollectionViewScrollPosition.centeredHorizontally, animated: false)
             }else if currentIndex?.item == (self.images?.count)!-1  {
-                
+
                self.myPageControl.currentPage = 0;
                self.myCollectionView.scrollToItem(at: IndexPath.init(row: 1, section: 0), at: UICollectionViewScrollPosition.centeredHorizontally, animated: false)
-                
+
             }else {
                 self.myPageControl.currentPage = (currentIndex?.item)!-1
             }
-            
+
         }else{
             //防止快速滑动不能切换的情况
             if scrollView.contentOffset.x < 0 {
@@ -259,6 +371,22 @@ extension SSBannerView:UIScrollViewDelegate {
             if scrollView.contentOffset.x > scrollView.frame.width*CGFloat((self.images?.count)! - 1) {
                 self.myCollectionView.scrollToItem(at: IndexPath.init(row: 1, section: 0), at: UICollectionViewScrollPosition.centeredHorizontally, animated: false)
             }
+
+        }
+
+        //防止快速滑动不能切换的情况
+        if scrollView.contentOffset.x+scrollView.contentInset.left+scrollView.contentInset.right <= 0 {
+            //滑到最左边
+            DispatchQueue.main.async(group: nil, qos: .default, flags: .barrier) {
+                 self.myCollectionView.scrollToItem(at: IndexPath.init(row: (self.images?.count)!-2, section: 0), at: UICollectionViewScrollPosition.centeredHorizontally, animated: false)
+            }
+           
+        }else if scrollView.contentOffset.x+scrollView.contentInset.right+scrollView.contentInset.left >= scrollView.contentSize.width-scrollView.frame.width {
+            //滑到最右边
+            DispatchQueue.main.async(group: nil, qos: .default, flags: .barrier) {
+                self.myCollectionView.scrollToItem(at: IndexPath.init(row: 1, section: 0), at: UICollectionViewScrollPosition.centeredHorizontally, animated: false)
+            }
+          
         }
     }
    
