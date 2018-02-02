@@ -2,6 +2,9 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:MarqueeLabel/MarqueeLabel.xcodeproj">
+   </FileRef>
+   <FileRef
       location = "group:SSBannerView/SSBannerView.xcodeproj">
    </FileRef>
    <FileRef
